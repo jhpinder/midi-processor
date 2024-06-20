@@ -35,8 +35,17 @@ byte currentKeyboardChannel = 1;
 long prevMillis = 0;
 
 void setup() {
-  // put your setup code here, to run once:
   MIDI.turnThruOff();
+  for (int i = 0; i < 10; i++) {
+    pinMode(pistonInputPins[i], INPUT_PULLUP);
+    pinMode(pistonLampPins[i], OUTPUT);
+  }
+  for (int i = 0; i < 4; i++) {
+    pinMode(keyboardButtonBasePin + i, INPUT_PULLUP);
+  }
+  pinMode(togglePedalButton, INPUT_PULLUP);
+  pinMode(pedalStateLED, OUTPUT);
+
 
 }
 
