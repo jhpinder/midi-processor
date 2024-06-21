@@ -77,14 +77,21 @@ void handleCC(byte channel, byte number, byte value) {
 
 void sendPedalNotes() {
   currentPedalNote = lowestNoteOn();
-  
-  if (currentPedalNote == lastPedalNote) { return; }
-  
-  MIDI.sendNoteOff(PEDAL_CHANNEL, lastPedalNote, 0);
+  if (currentPedalNote == lastPedalNote) {
+    return;
+  }
+  if (lastPedalNote >= 0) {
+    MIDI.sendNoteOff(PEDAL_CHANNEL, lastPedalNote, 0);
+  }
   lastPedalNote = currentPedalNote;
   
-  if (currentPedalNote < 0) { return; }
-  if (!currPedalActive) { return; }
+  if (currentPedalNote < 0) {
+    return;
+  }
+
+  if (!currPedalActive) {
+    return;
+  }
   
   MIDI.sendNoteOn(PEDAL_CHANNEL, currentPedalNote, 127);
 }
@@ -134,6 +141,7 @@ void scanButtons() {
 
   if (!digitalRead(cancelPistonPin) && millis() - prevMillis > 100) {
     MIDI.sendProgramChange(PISTON_CHANNEL, 1); // send cancel button
+    prevMillis = millis();
   }
 }
 
