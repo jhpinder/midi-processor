@@ -13,6 +13,7 @@ byte pistonInputPins[10] = {2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
 byte currPistonState[10] = {LOW, LOW, LOW, LOW, LOW, LOW, LOW, LOW, LOW, LOW};
 byte prevPistonState[10] = {LOW, LOW, LOW, LOW, LOW, LOW, LOW, LOW, LOW, LOW};
 byte pistonLampPins[10] = {30, 31, 32, 33, 34, 35, 36, 37, 38, 39};
+byte cancelPistonPin = 12;
 
 byte keyboardButtonBasePin = 20;
 byte keyboardButtonChannels[4] = {4, 2, 1, 5};
@@ -35,7 +36,10 @@ byte currentKeyboardChannel = 1;
 long prevMillis = 0;
 
 void setup() {
+  MIDI.setHandleNoteOn(handleNoteOn);
+  MIDI.setHandleNoteOff(handleNoteOff);
   MIDI.turnThruOff();
+  MIDI.begin();
   for (int i = 0; i < 10; i++) {
     pinMode(pistonInputPins[i], INPUT_PULLUP);
     pinMode(pistonLampPins[i], OUTPUT);
@@ -65,6 +69,10 @@ void handleNoteOn(byte channel, byte note, byte velocity) {
 void handleNoteOff(byte channel, byte note, byte velocity) {
   activeNotes[note] = false;
   MIDI.sendNoteOff(activeMidiChannel, note, velocity);
+}
+
+void handleCC(byte channel, byte number, byte value) {
+  MIDI.sendControlChange(activeMidiChannel, number, value);
 }
 
 void sendPedalNotes() {
@@ -118,9 +126,14 @@ void scanButtons() {
   if (!digitalRead(togglePedalButton)
     && currPedalActive != prevPedalActive
     && millis() - prevMillis > 20) {
+    prevMillis = millis();
     currPedalActive = !currPedalActive;
     digitalWrite(pedalStateLED, currPedalActive);
     prevPedalActive = currPedalActive;
+  }
+
+  if (!digitalRead(cancelPistonPin) && millis() - prevMillis > 100) {
+    MIDI.sendProgramChange(PISTON_CHANNEL, 1); // send cancel button
   }
 }
 
