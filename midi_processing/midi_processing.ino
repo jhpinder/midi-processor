@@ -6,6 +6,7 @@
 #define CHOIR_CHANNEL 4
 #define SOLO_CHANNEL 5
 #define PISTON_CHANNEL 8
+#define CANCEL_BUTTON 0x7F
 
 MIDI_CREATE_DEFAULT_INSTANCE();
 
@@ -38,8 +39,9 @@ long prevMillis = 0;
 void setup() {
   MIDI.setHandleNoteOn(handleNoteOn);
   MIDI.setHandleNoteOff(handleNoteOff);
+  MIDI.setHandleControlChange(handleCC);
+  MIDI.begin(MIDI_CHANNEL_OMNI);
   MIDI.turnThruOff();
-  MIDI.begin();
   for (int i = 0; i < 10; i++) {
     pinMode(pistonInputPins[i], INPUT_PULLUP);
     pinMode(pistonLampPins[i], OUTPUT);
@@ -63,16 +65,16 @@ void loop() {
 
 void handleNoteOn(byte channel, byte note, byte velocity) {
   activeNotes[note] = true;
-  MIDI.sendNoteOn(activeMidiChannel, note, velocity);
+  MIDI.sendNoteOn(note, velocity, activeMidiChannel);
 }
 
 void handleNoteOff(byte channel, byte note, byte velocity) {
   activeNotes[note] = false;
-  MIDI.sendNoteOff(activeMidiChannel, note, velocity);
+  MIDI.sendNoteOff(note, velocity, activeMidiChannel);
 }
 
 void handleCC(byte channel, byte number, byte value) {
-  MIDI.sendControlChange(activeMidiChannel, number, value);
+  MIDI.sendControlChange(number, value, activeMidiChannel);
 }
 
 void sendPedalNotes() {
@@ -81,7 +83,7 @@ void sendPedalNotes() {
     return;
   }
   if (lastPedalNote >= 0) {
-    MIDI.sendNoteOff(PEDAL_CHANNEL, lastPedalNote, 0);
+    MIDI.sendNoteOff(lastPedalNote, 0, PEDAL_CHANNEL);
   }
   lastPedalNote = currentPedalNote;
   
@@ -93,7 +95,7 @@ void sendPedalNotes() {
     return;
   }
   
-  MIDI.sendNoteOn(PEDAL_CHANNEL, currentPedalNote, 127);
+  MIDI.sendNoteOn(currentPedalNote, 64, PEDAL_CHANNEL);
 }
 
 int lowestNoteOn() {
@@ -112,7 +114,7 @@ void scanPistons() {
       for (int j = 0; j < 10; j++) {
         digitalWrite(pistonLampPins[j], i == j);
       }
-      MIDI.sendProgramChange(PISTON_CHANNEL, 1);
+      MIDI.sendProgramChange(i, PISTON_CHANNEL);
     }
   }
 }
@@ -125,7 +127,7 @@ void scanButtons() {
       if (currentPedalNote > -1) {
         for (int j = 0; j < 128; j++) {
           if (activeNotes[j])
-            MIDI.sendNoteOff(previousMidiChannel, j, 0);
+            MIDI.sendNoteOff(j, 0, previousMidiChannel);
         }
       }
     }    
@@ -140,7 +142,7 @@ void scanButtons() {
   }
 
   if (!digitalRead(cancelPistonPin) && millis() - prevMillis > 100) {
-    MIDI.sendProgramChange(PISTON_CHANNEL, 1); // send cancel button
+    MIDI.sendProgramChange(CANCEL_BUTTON, PISTON_CHANNEL); // send cancel button
     prevMillis = millis();
   }
 }
