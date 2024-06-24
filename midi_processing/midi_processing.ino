@@ -51,8 +51,7 @@ void setup() {
   }
   pinMode(togglePedalButton, INPUT_PULLUP);
   pinMode(pedalStateLED, OUTPUT);
-
-
+  pinMode(cancelPistonPin, INPUT_PULLUP);
 }
 
 void loop() {
@@ -121,13 +120,12 @@ void scanPistons() {
 
 void scanButtons() {
   for (int i = 0; i < 4; i++) {
-        currKeyboardButtonState[i] = !digitalRead(i + keyboardButtonBasePin);
+    currKeyboardButtonState[i] = !digitalRead(i + keyboardButtonBasePin);
     if (currKeyboardButtonState[i] != prevKeyboardButtonState[i] && currKeyboardButtonState[i]) {
       activeMidiChannel = keyboardButtonChannels[i];
       if (currentPedalNote > -1) {
         for (int j = 0; j < 128; j++) {
-          if (activeNotes[j])
-            MIDI.sendNoteOff(j, 0, previousMidiChannel);
+          if (activeNotes[j]) MIDI.sendNoteOff(j, 0, previousMidiChannel);
         }
       }
     }    
