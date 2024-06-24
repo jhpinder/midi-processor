@@ -69,13 +69,15 @@ void loop() {
 void handleNoteOn(byte channel, byte note, byte velocity) {
   activeNotes[note] = true;
   MIDI.sendNoteOn(note, velocity, activeMidiChannel);
-  lowestNoteWasReleased = lowestNoteWasReleased && note <= lastPedalNote;
+  if (lowestNoteWasReleased) {
+    lowestNoteWasReleased = note > lastPedalNote;
+  }
 }
 
 void handleNoteOff(byte channel, byte note, byte velocity) {
   activeNotes[note] = false;
   MIDI.sendNoteOff(note, velocity, activeMidiChannel);
-  lowestNoteWasReleased = (lastPedalNote == note);
+  lowestNoteWasReleased = (lastPedalNote == note) && (lowestNoteOn() > note);
 }
 
 void handleCC(byte channel, byte number, byte value) {
@@ -120,12 +122,16 @@ int lowestNoteOn() {
 void scanPistons() {
   for (int i = 0; i < 10; i++) {
     currPistonState[i] = !digitalRead(pistonInputPins[i]);
-    if (currPistonState[i] != prevPistonState[i] && currPistonState) {
+    if (currPistonState[i] != prevPistonState[i]
+    && currPistonState
+    && millis() - prevMillis > 300) {
+      prevMillis = millis();
       for (int j = 0; j < 10; j++) {
         digitalWrite(pistonLampPins[j], i == j);
       }
       MIDI.sendProgramChange(i, PISTON_CHANNEL);
     }
+    prevPistonState[i] = currPistonState[i];
   }
 }
 
