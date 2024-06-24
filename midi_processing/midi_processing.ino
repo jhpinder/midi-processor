@@ -18,6 +18,7 @@ byte cancelPistonPin = 12;
 bool prevCancelState = false;
 
 byte keyboardButtonBasePin = 20;
+byte keyboardLedBasePin = 25;
 byte keyboardButtonChannels[4] = {4, 2, 1, 5};
 byte currKeyboardButtonState[4] = {LOW, LOW, LOW, LOW};
 byte prevKeyboardButtonState[4] = {LOW, LOW, LOW, LOW};
@@ -50,10 +51,11 @@ void setup() {
   }
   for (int i = 0; i < 4; i++) {
     pinMode(keyboardButtonBasePin + i, INPUT_PULLUP);
+    pinMode(keyboardLedBasePin + i, OUTPUT);
   }
   pinMode(togglePedalButton, INPUT_PULLUP);
   pinMode(pedalStateLED, OUTPUT);
-
+  pinMode(cancelPistonPin, INPUT_PULLUP);
 
 }
 
@@ -89,7 +91,8 @@ void sendPedalNotes() {
   if (lastPedalNote >= 0) {
     MIDI.sendNoteOff(lastPedalNote, 0, PEDAL_CHANNEL);
   }
-  
+  lastPedalNote = currentPedalNote;
+
   if (currentPedalNote < 0) {
     return;
   }
@@ -103,7 +106,7 @@ void sendPedalNotes() {
   }
   
   MIDI.sendNoteOn(currentPedalNote, 64, PEDAL_CHANNEL);
-  lastPedalNote = currentPedalNote;
+
 }
 
 int lowestNoteOn() {
@@ -134,12 +137,13 @@ void scanButtons() {
       activeMidiChannel = keyboardButtonChannels[i];
       if (currentPedalNote > -1) {
         for (int j = 0; j < 128; j++) {
-          if (activeNotes[j])
+          if (activeNotes[j]) {
             MIDI.sendNoteOff(j, 0, previousMidiChannel);
+          }
         }
       }
     }
-    digitalWrite(i + keyboardButtonBasePin, activeMidiChannel == keyboardButtonChannels[i]);
+    digitalWrite(i + keyboardLedBasePin, activeMidiChannel == keyboardButtonChannels[i]);
   }
 
   if (!digitalRead(togglePedalButton)
