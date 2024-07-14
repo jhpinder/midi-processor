@@ -1,4 +1,5 @@
 #include <MIDI.h>
+#include <RF24MIDI.h>
 
 #define SWELL_CHANNEL   1
 #define GREAT_CHANNEL   2
@@ -7,16 +8,18 @@
 #define SOLO_CHANNEL    5
 #define PISTON_CHANNEL  8
 
-#define LAUNCHKEY_PISTON_CHANNEL   10
-#define LAUNCHKEY_CANCEL_NUM     0x72
-#define LAUNCHKEY_BASS_ON        0x68
-#define LAUNCHKEY_BASS_OFF       0x69
-#define LAUNCHKEY_MIN_KEY        0x33
-#define LAUNCHKEY_MAX_KEY        0x37
-#define PISTON_PRG_BASE          0x28
+#define LAUNCHKEY_PISTON_CHANNEL    10
+#define LAUNCHKEY_CANCEL_NUM      0x72
+#define LAUNCHKEY_BASS_ON         0x68
+#define LAUNCHKEY_BASS_OFF        0x69
+#define LAUNCHKEY_MIN_KEY         0x33
+#define LAUNCHKEY_MAX_KEY         0x37
+#define PISTON_PRG_BASE           0x28
+#define CANCEL_BUTTON             0x7F
 
-#define CANCEL_BUTTON 0x7F
-
+#define RF24MIDIINADDR  50
+#define RF24MIDIOUTADDR 49
+RF24MIDI_CREATE_INSTANCE(RF24MIDIINADDR, RF24MIDIOUTADDR, RF24MIDI);
 
 MIDI_CREATE_DEFAULT_INSTANCE();
 
@@ -40,6 +43,8 @@ void setup() {
   MIDI.setHandleControlChange(handleCC);
   MIDI.begin(MIDI_CHANNEL_OMNI);
   MIDI.turnThruOff();
+  RF24MIDI.begin(MIDI_CHANNEL_OMNI);
+  RF24MIDI.turnThruOff();
 }
 
 void loop() {
@@ -50,11 +55,11 @@ void loop() {
 
 void handleNoteOn(byte channel, byte note, byte velocity) {
   if (channel == LAUNCHKEY_PISTON_CHANNEL) {
-    MIDI.sendProgramChange(note - PISTON_PRG_BASE, PISTON_CHANNEL);
+    RF24MIDI.sendProgramChange(note - PISTON_PRG_BASE, PISTON_CHANNEL);
     return;
   }
   activeNotes[note] = true;
-  MIDI.sendNoteOn(note, velocity, activeMidiChannel);
+  RF24MIDI.sendNoteOn(note, velocity, activeMidiChannel);
   if (lowestNoteWasReleased) {
     lowestNoteWasReleased = note > lastPedalNote;
   }
@@ -65,7 +70,7 @@ void handleNoteOff(byte channel, byte note, byte velocity) {
     return;
   }
   activeNotes[note] = false;
-  MIDI.sendNoteOff(note, velocity, activeMidiChannel);
+  RF24MIDI.sendNoteOff(note, velocity, activeMidiChannel);
   lowestNoteWasReleased = (lastPedalNote == note)
     && (lowestNoteOn() > note)
     && (autoPedalDisabled());
@@ -74,7 +79,7 @@ void handleNoteOff(byte channel, byte note, byte velocity) {
 void handleCC(byte channel, byte number, byte value) {
   if (number == LAUNCHKEY_CANCEL_NUM) {
     if (value) {
-      MIDI.sendProgramChange(CANCEL_BUTTON, PISTON_CHANNEL);
+      RF24MIDI.sendProgramChange(CANCEL_BUTTON, PISTON_CHANNEL);
     }
     return;
   }
@@ -83,7 +88,7 @@ void handleCC(byte channel, byte number, byte value) {
     if (value) {
       currPedalState = true;
       if (lowestNoteOn() > -1) {
-        MIDI.sendNoteOn(lowestNoteOn(), 64, PEDAL_CHANNEL);
+        RF24MIDI.sendNoteOn(lowestNoteOn(), 64, PEDAL_CHANNEL);
       }
     }
     return;
@@ -93,7 +98,7 @@ void handleCC(byte channel, byte number, byte value) {
     if (value) {
       currPedalState = false;
       if (lowestNoteOn() > -1) {
-        MIDI.sendNoteOff(currentPedalNote, 0, PEDAL_CHANNEL);
+        RF24MIDI.sendNoteOff(currentPedalNote, 0, PEDAL_CHANNEL);
       }
     }
     return;
@@ -104,8 +109,8 @@ void handleCC(byte channel, byte number, byte value) {
       activeMidiChannel = keyboardButtonChannels[number - LAUNCHKEY_MIN_KEY];
       for (int j = 0; j < 128; j++) {
         if (activeNotes[j]) {
-          MIDI.sendNoteOn(j, 64, activeMidiChannel);
-          MIDI.sendNoteOff(j, 0, previousMidiChannel);
+          RF24MIDI.sendNoteOn(j, 64, activeMidiChannel);
+          RF24MIDI.sendNoteOff(j, 0, previousMidiChannel);
         }
       }
       previousMidiChannel = activeMidiChannel;
@@ -113,7 +118,7 @@ void handleCC(byte channel, byte number, byte value) {
     return;
   }
 
-  MIDI.sendControlChange(number, value, activeMidiChannel);
+  RF24MIDI.sendControlChange(number, value, activeMidiChannel);
 }
 
 void sendPedalNotes() {
@@ -122,7 +127,7 @@ void sendPedalNotes() {
     return;
   }
   if (lastPedalNote >= 0) {
-    MIDI.sendNoteOff(lastPedalNote, 0, PEDAL_CHANNEL);
+    RF24MIDI.sendNoteOff(lastPedalNote, 0, PEDAL_CHANNEL);
   }
   lastPedalNote = currentPedalNote;
 
@@ -131,7 +136,7 @@ void sendPedalNotes() {
   }
 
   if (!currPedalState) {
-    MIDI.sendNoteOff(currentPedalNote, 0, PEDAL_CHANNEL);
+    RF24MIDI.sendNoteOff(currentPedalNote, 0, PEDAL_CHANNEL);
     return;
   }
 
@@ -139,7 +144,7 @@ void sendPedalNotes() {
     return;
   }
   
-  MIDI.sendNoteOn(currentPedalNote, 64, PEDAL_CHANNEL);
+  RF24MIDI.sendNoteOn(currentPedalNote, 64, PEDAL_CHANNEL);
 
 }
 
@@ -165,6 +170,6 @@ bool autoPedalDisabled() {
       bottom = i;
     }
   }
-  return numNotes > 2 && largestGap < 5;
+  return numNotes > 2 && largestGap < 8;
 }
 
